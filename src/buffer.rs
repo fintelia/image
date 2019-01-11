@@ -576,13 +576,6 @@ where
         *p = pixel
     }
 
-    /// Put a pixel at location (x, y), taking into account alpha channels
-    ///
-    /// DEPRECATED: This method will be removed. Blend the pixel directly instead.
-    fn blend_pixel(&mut self, x: u32, y: u32, p: P) {
-        self.get_pixel_mut(x, y).blend(&p)
-    }
-
     fn inner_mut(&mut self) -> &mut Self::InnerImage {
         self
     }

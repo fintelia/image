@@ -595,18 +595,6 @@ impl GenericImage for DynamicImage {
             DynamicImage::ImageBgra8(ref mut p) => p.put_pixel(x, y, pixel.to_bgra()),
         }
     }
-    /// DEPRECATED: Use iterator `pixels_mut` to blend the pixels directly.
-    fn blend_pixel(&mut self, x: u32, y: u32, pixel: color::Rgba<u8>) {
-        match *self {
-            DynamicImage::ImageLuma8(ref mut p) => p.blend_pixel(x, y, pixel.to_luma()),
-            DynamicImage::ImageLumaA8(ref mut p) => p.blend_pixel(x, y, pixel.to_luma_alpha()),
-            DynamicImage::ImageRgb8(ref mut p) => p.blend_pixel(x, y, pixel.to_rgb()),
-            DynamicImage::ImageRgba8(ref mut p) => p.blend_pixel(x, y, pixel),
-
-            DynamicImage::ImageBgr8(ref mut p) => p.blend_pixel(x, y, pixel.to_bgr()),
-            DynamicImage::ImageBgra8(ref mut p) => p.blend_pixel(x, y, pixel.to_bgra()),
-        }
-    }
 
     /// DEPRECATED: Do not use is function: It is unimplemented!
     fn get_pixel_mut(&mut self, _: u32, _: u32) -> &mut color::Rgba<u8> {

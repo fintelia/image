@@ -290,7 +290,7 @@ trait HeaderReader: BufRead {
                     "Only ascii characters allowed in pam header".to_string(),
                 ));
             }
-            let (identifier, rest) = line.trim_left()
+            let (identifier, rest) = line.trim_start()
                 .split_at(line.find(char::is_whitespace).unwrap_or_else(|| line.len()));
             match identifier {
                 "ENDHDR" => break,
