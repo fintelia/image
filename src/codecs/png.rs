@@ -593,20 +593,17 @@ impl<W: Write> PngEncoder<W> {
             }
         };
         let comp = match self.compression {
-            CompressionType::Default => png::Compression::Default,
-            CompressionType::Best => png::Compression::Best,
+            CompressionType::Default => png::Compression::Balanced,
+            CompressionType::Best => png::Compression::High,
             _ => png::Compression::Fast,
         };
-        let (filter, adaptive_filter) = match self.filter {
-            FilterType::NoFilter => (
-                png::FilterType::NoFilter,
-                png::AdaptiveFilterType::NonAdaptive,
-            ),
-            FilterType::Sub => (png::FilterType::Sub, png::AdaptiveFilterType::NonAdaptive),
-            FilterType::Up => (png::FilterType::Up, png::AdaptiveFilterType::NonAdaptive),
-            FilterType::Avg => (png::FilterType::Avg, png::AdaptiveFilterType::NonAdaptive),
-            FilterType::Paeth => (png::FilterType::Paeth, png::AdaptiveFilterType::NonAdaptive),
-            FilterType::Adaptive => (png::FilterType::Sub, png::AdaptiveFilterType::Adaptive),
+        let filter = match self.filter {
+            FilterType::NoFilter => png::Filter::NoFilter,
+            FilterType::Sub => png::Filter::Sub,
+            FilterType::Up => png::Filter::Up,
+            FilterType::Avg => png::Filter::Avg,
+            FilterType::Paeth => png::Filter::Paeth,
+            FilterType::Adaptive => png::Filter::Sub,
         };
 
         let mut info = png::Info::with_size(width, height);
@@ -622,7 +619,6 @@ impl<W: Write> PngEncoder<W> {
         encoder.set_depth(bits);
         encoder.set_compression(comp);
         encoder.set_filter(filter);
-        encoder.set_adaptive_filter(adaptive_filter);
         let mut writer = encoder
             .write_header()
             .map_err(|e| ImageError::IoError(e.into()))?;
