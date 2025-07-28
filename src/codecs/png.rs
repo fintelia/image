@@ -595,7 +595,7 @@ impl<W: Write> PngEncoder<W> {
         let comp = match self.compression {
             CompressionType::Default => png::Compression::Balanced,
             CompressionType::Best => png::Compression::High,
-            _ => png::Compression::Fast,
+            CompressionType::Fast => png::Compression::Fast,
         };
         let filter = match self.filter {
             FilterType::NoFilter => png::Filter::NoFilter,
@@ -603,7 +603,7 @@ impl<W: Write> PngEncoder<W> {
             FilterType::Up => png::Filter::Up,
             FilterType::Avg => png::Filter::Avg,
             FilterType::Paeth => png::Filter::Paeth,
-            FilterType::Adaptive => png::Filter::Sub,
+            FilterType::Adaptive => png::Filter::Adaptive,
         };
 
         let mut info = png::Info::with_size(width, height);
