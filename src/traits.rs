@@ -34,11 +34,21 @@ impl EncodableLayout for [f32] {
 }
 
 mod sealed {
-    pub trait PrimitiveSealed: Sized {}
+    pub trait PrimitiveSealed: Sized {
+        fn swizzle_rgb_bgr(pixels: &mut [Self]) {
+            for pixel in pixels.as_chunks_mut::<3>().0 {
+                pixel.reverse();
+            }
+        }
+    }
 }
 
 impl sealed::PrimitiveSealed for usize {}
-impl sealed::PrimitiveSealed for u8 {}
+impl sealed::PrimitiveSealed for u8 {
+    fn swizzle_rgb_bgr(pixels: &mut [Self]) {
+        swizzle_rgb_bgr_u8(pixels)
+    }
+}
 impl sealed::PrimitiveSealed for u16 {}
 impl sealed::PrimitiveSealed for u32 {}
 impl sealed::PrimitiveSealed for u64 {}
@@ -86,6 +96,28 @@ declare_primitive!(i32: (Self::MIN)..Self::MAX);
 declare_primitive!(i64: (Self::MIN)..Self::MAX);
 declare_primitive!(f32: (0.0)..1.0);
 declare_primitive!(f64: (0.0)..1.0);
+
+fn swizzle_rgb_bgr_u8(pixels: &mut [u8]) {
+    use std::simd::{simd_swizzle, Simd};
+
+    let mut i = 0;
+    while let Some(chunk) = pixels[i..].first_chunk_mut::<32>() {
+        *chunk = *simd_swizzle!(
+            Simd::from_array(*chunk),
+            [
+                2, 1, 0, 5, 4, 3, 8, 7, 6, 11, 10, 9, 14, 13, 12, 17, 16, 15, 20, 19, 18, 23, 22,
+                21, 26, 25, 24, 29, 28, 27, 30, 31
+            ]
+        )
+        .as_array();
+
+        i += 30;
+    }
+
+    for pixel in pixels[i..].as_chunks_mut::<3>().0 {
+        pixel.reverse();
+    }
+}
 
 /// An `Enlargable::Larger` value should be enough to calculate
 /// the sum (average) of a few hundred or thousand Enlargeable values.

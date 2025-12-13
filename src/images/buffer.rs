@@ -13,7 +13,7 @@ use crate::error::{
 use crate::flat::{FlatSamples, SampleLayout};
 use crate::math::Rect;
 use crate::metadata::cicp::{CicpApplicable, CicpPixelCast, CicpRgb, ColorComponentForCicp};
-use crate::traits::{EncodableLayout, Pixel, PixelWithColorType};
+use crate::traits::{EncodableLayout, Enlargeable, Pixel, PixelWithColorType};
 use crate::utils::expand_packed;
 use crate::{
     metadata::{Cicp, CicpColorPrimaries, CicpTransferCharacteristics, CicpTransform},
@@ -1431,26 +1431,18 @@ impl<P: Pixel> ImageBuffer<P, Vec<P::Subpixel>> {
 
 impl<S, Container> ImageBuffer<Rgb<S>, Container>
 where
-    Rgb<S>: PixelWithColorType<Subpixel = S>,
     Container: DerefMut<Target = [S]>,
+    S: crate::Primitive + Enlargeable,
 {
     /// Construct an image by swapping `Bgr` channels into an `Rgb` order.
-    pub fn from_raw_bgr(width: u32, height: u32, container: Container) -> Option<Self> {
-        let mut img = Self::from_raw(width, height, container)?;
-
-        for pix in img.pixels_mut() {
-            pix.0.reverse();
-        }
-
-        Some(img)
+    pub fn from_raw_bgr(width: u32, height: u32, mut container: Container) -> Option<Self> {
+        S::swizzle_rgb_bgr(&mut *container);
+        Self::from_raw(width, height, container)
     }
 
     /// Return the underlying raw buffer after converting it into `Bgr` channel order.
     pub fn into_raw_bgr(mut self) -> Container {
-        for pix in self.pixels_mut() {
-            pix.0.reverse();
-        }
-
+        S::swizzle_rgb_bgr(&mut *self);
         self.into_raw()
     }
 }
