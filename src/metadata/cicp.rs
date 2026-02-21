@@ -91,6 +91,7 @@ pub enum CicpColorPrimaries {
 }
 
 impl CicpColorPrimaries {
+    #[cfg(feature = "moxcms")]
     fn to_moxcms(self) -> moxcms::CicpColorPrimaries {
         use moxcms::CicpColorPrimaries as M;
 
@@ -171,6 +172,7 @@ pub enum CicpTransferCharacteristics {
 }
 
 impl CicpTransferCharacteristics {
+    #[cfg(feature = "moxcms")]
     fn to_moxcms(self) -> moxcms::TransferCharacteristics {
         use moxcms::TransferCharacteristics as T;
 
@@ -252,6 +254,7 @@ pub enum CicpMatrixCoefficients {
 }
 
 impl CicpMatrixCoefficients {
+    #[cfg(feature = "moxcms")]
     fn to_moxcms(self) -> Option<moxcms::MatrixCoefficients> {
         use moxcms::MatrixCoefficients as M;
 
@@ -330,6 +333,11 @@ struct RgbTransforms<C> {
 }
 
 impl CicpTransform {
+    #[cfg(not(feature = "moxcms"))]
+    pub fn new(from: Cicp, into: Cicp) -> Option<Self> {
+        None
+    }
+
     /// Construct a transform between two color spaces.
     ///
     /// Returns `Some` if the transform is guaranteed to be supported by `image`. Both color spaces
@@ -342,6 +350,7 @@ impl CicpTransform {
     /// This is used with [`ConvertColorOptions`][`crate::ConvertColorOptions`] in
     /// [`ImageBuffer::copy_from_color_space`][`crate::ImageBuffer::copy_from_color_space`],
     /// [`DynamicImage::copy_from_color_space`][`DynamicImage::copy_from_color_space`].
+    #[cfg(feature = "moxcms")]
     pub fn new(from: Cicp, into: Cicp) -> Option<Self> {
         if !from.qualify_stability() || !into.qualify_stability() {
             // To avoid regressions, we do not support all kinds of transforms from the start.
@@ -448,6 +457,7 @@ impl CicpTransform {
         Ok(())
     }
 
+    #[cfg(feature = "moxcms")]
     fn build_transforms<P: ColorComponentForCicp + Default + 'static>(
         trs: [Option<Arc<dyn moxcms::TransformExecutor<P> + Send + Sync>>; 4],
         f32: [Arc<dyn moxcms::TransformExecutor<f32> + Send + Sync>; 4],
@@ -1003,12 +1013,16 @@ impl CicpRgb {
         };
 
         // If we get here we need to transform through Rgb(a) 32F
+        #[cfg(feature = "moxcms")]
         let color_space_coefs = self
             .derived_luminance()
             // Since `cast_pixels` must be infallible we have no choice but to fallback to
             // something here. This something is chosen by the caller, which would allow them to
             // detect it has happened.
             .unwrap_or_else(color_space_fallback);
+
+        #[cfg(not(feature = "moxcms"))]
+        let color_space_coefs = color_space_fallback();
 
         let pixels = buffer.len() / from_layout.channels();
 
@@ -1366,19 +1380,27 @@ impl Cicp {
     /// linearly dependent on D50 instead, but it's brightness would be correctly presented. At
     /// least for perceptual intent this might be alright.
     fn to_moxcms_compute_profile(self) -> Option<ColorProfile> {
-        let mut rgb = moxcms::ColorProfile::new_srgb();
+        #[cfg(feature = "moxcms")]
+        {
+            let mut rgb = moxcms::ColorProfile::new_srgb();
 
-        rgb.update_rgb_colorimetry_from_cicp(moxcms::CicpProfile {
-            color_primaries: self.primaries.to_moxcms(),
-            transfer_characteristics: self.transfer.to_moxcms(),
-            matrix_coefficients: self.matrix.to_moxcms()?,
-            full_range: match self.full_range {
-                CicpVideoFullRangeFlag::NarrowRange => false,
-                CicpVideoFullRangeFlag::FullRange => true,
-            },
-        });
+            rgb.update_rgb_colorimetry_from_cicp(moxcms::CicpProfile {
+                color_primaries: self.primaries.to_moxcms(),
+                transfer_characteristics: self.transfer.to_moxcms(),
+                matrix_coefficients: self.matrix.to_moxcms()?,
+                full_range: match self.full_range {
+                    CicpVideoFullRangeFlag::NarrowRange => false,
+                    CicpVideoFullRangeFlag::FullRange => true,
+                },
+            });
 
-        Some(ColorProfile { rgb })
+            Some(ColorProfile { rgb })
+        }
+
+        #[cfg(not(feature = "moxcms"))]
+        {
+            None
+        }
     }
 
     /// Whether we have invested enough testing to ensure that color values can be assumed to be
@@ -1466,6 +1488,7 @@ impl CicpRgb {
     /// Calculate the luminance cofactors according to Rec H.273 (39) and (40).
     ///
     /// Returns cofactors for red, green, and blue in that order.
+    #[cfg(feature = "moxcms")]
     pub(crate) fn derived_luminance(&self) -> Option<[f32; 3]> {
         let primaries = match self.primaries {
             CicpColorPrimaries::SRgb => moxcms::ColorPrimaries::BT_709,
@@ -1524,10 +1547,12 @@ impl From<CicpRgb> for Cicp {
 /// For instance, in a previous iteration we had a separate gray profile here (but now handle that
 /// internally by expansion to RGB through an YCbCr). Future iterations may add additional structs
 /// to be computed for validating `CicpTransform::new`.
+#[cfg(feature = "moxcms")]
 struct ColorProfile {
     rgb: moxcms::ColorProfile,
 }
 
+#[cfg(feature = "moxcms")]
 impl ColorProfile {
     fn map_layout(&self, layout: LayoutWithColor) -> (&moxcms::ColorProfile, moxcms::Layout) {
         match layout {
@@ -1539,8 +1564,12 @@ impl ColorProfile {
     }
 }
 
+#[cfg(not(feature = "moxcms"))]
+enum ColorProfile {}
+
 #[cfg(test)]
 #[test]
+#[cfg(feature = "moxcms")]
 fn moxcms() {
     let l = moxcms::TransferCharacteristics::Linear;
     assert_eq!(l.linearize(1.0), 1.0);
@@ -1551,6 +1580,7 @@ fn moxcms() {
 
 #[cfg(test)]
 #[test]
+#[cfg(feature = "moxcms")]
 fn derived_luminance() {
     let luminance = Cicp::SRGB.into_rgb().derived_luminance();
     let [kr, kg, kb] = luminance.unwrap();
